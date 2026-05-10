@@ -8,6 +8,8 @@ import {
   Node,
   resources,
   JsonAsset,
+  Sprite,
+  SpriteFrame,
   UITransform,
   Vec2,
   Vec3,
@@ -15,18 +17,32 @@ import {
 import { DEFAULT_GAME_BALANCE, getM1LevelConfig, M1_LEVEL_CONFIGS } from './config/M1LevelConfigs';
 import type { GameBalanceConfig, GameState, M1LevelConfig, ObstacleConfig, RuntimeChicken, RuntimeEagle } from './config/GameTypes';
 import {
-  appendPointWithinLength,
   circleTouchesPolyline,
   clamp,
   distance,
   normalizeOrFallback,
   randomRange,
   reflectVelocity,
-  totalPolylineLength,
 } from './gameplay/Geometry';
 import { MockAdService } from './services/MockAdService';
 
 const { ccclass } = _decorator;
+
+const UI_ASSET_PATHS = {
+  background: 'ui-assets/background/bg_farm_level_01/spriteFrame',
+  chickenIdle: 'ui-assets/chick/chick_idle_01/spriteFrame',
+  chickenHit: 'ui-assets/chick/chick_hit_01/spriteFrame',
+  chickenVictory: 'ui-assets/chick/chick_victory_01/spriteFrame',
+  eagleFly: 'ui-assets/enemy/eagle_fly_01/spriteFrame',
+  eagleDive: 'ui-assets/enemy/eagle_dive_01/spriteFrame',
+  eagleBlocked: 'ui-assets/enemy/eagle_blocked_01/spriteFrame',
+  vineTexture: 'ui-assets/defense/vine_texture/spriteFrame',
+  pauseButton: 'ui-assets/ui/button_pause/spriteFrame',
+  restartButton: 'ui-assets/ui/button_restart/spriteFrame',
+  countdownPanel: 'ui-assets/ui/countdown_panel_8_5/spriteFrame',
+  clockIcon: 'ui-assets/ui/icon_clock/spriteFrame',
+  handPointer: 'ui-assets/guide/hand_pointer/spriteFrame',
+} as const;
 
 @ccclass('M1PrototypeRoot')
 export class M1PrototypeRoot extends Component {
@@ -42,16 +58,19 @@ export class M1PrototypeRoot extends Component {
   private lineCommitted = false;
   private resultActionPending = false;
 
+  private backgroundSprite: Sprite | null = null;
+  private backgroundSkinReady = false;
   private backgroundGraphics: Graphics | null = null;
   private lineGraphics: Graphics | null = null;
+  private vineSegmentNodes: Node[] = [];
   private hudLabel: Label | null = null;
   private hintLabel: Label | null = null;
+  private clockIcon: Node | null = null;
   private resultPanel: Node | null = null;
   private resultTitle: Label | null = null;
   private resultButton: Node | null = null;
   private resultButtonLabel: Label | null = null;
   private pauseButton: Node | null = null;
-  private pauseButtonLabel: Label | null = null;
   private restartButton: Node | null = null;
 
   protected onLoad(): void {
@@ -95,6 +114,7 @@ export class M1PrototypeRoot extends Component {
     }
     transform.setContentSize(this.balance.playArea.width, this.balance.playArea.height);
     transform.setAnchorPoint(0.5, 0.5);
+    this.backgroundSprite?.node.getComponent(UITransform)?.setContentSize(this.balance.playArea.width, this.balance.playArea.height);
   }
 
   private bindTouchEvents(): void {
@@ -118,6 +138,10 @@ export class M1PrototypeRoot extends Component {
   }
 
   private createScene(): void {
+    this.backgroundSprite = this.createFullStageSprite('BackgroundSkin', UI_ASSET_PATHS.background, -12, () => {
+      this.backgroundSkinReady = true;
+      this.redrawBackground();
+    });
     this.backgroundGraphics = this.createGraphicsNode('Background', -10);
     this.lineGraphics = this.createGraphicsNode('DefenseLine', 10);
 
@@ -127,6 +151,29 @@ export class M1PrototypeRoot extends Component {
     this.createHudControls();
     this.createResultPanel();
     this.redrawBackground();
+  }
+
+  private createFullStageSprite(name: string, resourcePath: string, siblingIndex: number, onLoaded?: () => void): Sprite {
+    const node = new Node(name);
+    node.layer = this.node.layer;
+    this.node.addChild(node);
+    node.setSiblingIndex(siblingIndex);
+    node.addComponent(UITransform).setContentSize(this.balance.playArea.width, this.balance.playArea.height);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(resourcePath, sprite, onLoaded);
+    return sprite;
+  }
+
+  private loadSpriteFrame(resourcePath: string, sprite: Sprite, onLoaded?: () => void): void {
+    resources.load(resourcePath, SpriteFrame, (error, spriteFrame) => {
+      if (error || !spriteFrame || !sprite?.node?.isValid) {
+        return;
+      }
+
+      sprite.spriteFrame = spriteFrame;
+      onLoaded?.();
+    });
   }
 
   private createGraphicsNode(name: string, siblingIndex: number): Graphics {
@@ -154,29 +201,58 @@ export class M1PrototypeRoot extends Component {
     return label;
   }
 
-  private createHudControls(): void {
-    this.pauseButton = this.createTopRightButton('PauseButton', 'Pause', new Vec2(420, 314), 132);
-    this.pauseButtonLabel = this.pauseButton.getChildByName('PauseButtonLabel')?.getComponent(Label) ?? null;
-    this.pauseButton.on(Node.EventType.TOUCH_END, this.onPauseButton, this);
-
-    this.restartButton = this.createTopRightButton('RestartButton', 'Restart', new Vec2(555, 314), 142);
-    this.restartButton.on(Node.EventType.TOUCH_END, this.onRestartButton, this);
+  private createSpriteChild(parent: Node, name: string, resourcePath: string, size: Vec2, position = new Vec2(0, 0)): Sprite {
+    const node = new Node(name);
+    node.layer = this.node.layer;
+    node.setPosition(position.x, position.y, 0);
+    parent.addChild(node);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(resourcePath, sprite);
+    return sprite;
   }
 
-  private createTopRightButton(name: string, text: string, position: Vec2, width: number): Node {
+  private createSpriteNode(name: string, resourcePath: string, position: Vec2, size: Vec2, siblingIndex?: number): Sprite {
     const node = new Node(name);
     node.layer = this.node.layer;
     node.setPosition(position.x, position.y, 0);
     this.node.addChild(node);
-    node.addComponent(UITransform).setContentSize(width, 52);
-    const graphics = node.addComponent(Graphics);
-    graphics.fillColor = new Color(238, 183, 82, 255);
-    graphics.strokeColor = new Color(116, 73, 36, 255);
-    graphics.lineWidth = 4;
-    graphics.rect(-width * 0.5, -26, width, 52);
-    graphics.fill();
-    graphics.stroke();
-    this.createChildLabel(node, `${name}Label`, text, new Vec2(0, -10), 22, new Color(78, 45, 24, 255));
+    if (siblingIndex !== undefined) {
+      node.setSiblingIndex(siblingIndex);
+    }
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(resourcePath, sprite);
+    return sprite;
+  }
+
+  private createHudControls(): void {
+    if (this.hudLabel?.node) {
+      const hudIndex = this.hudLabel.node.getSiblingIndex();
+      this.hudLabel.node.setPosition(-468, 286, 0);
+      this.hudLabel.node.getComponent(UITransform)?.setContentSize(300, 52);
+      this.createSpriteNode('CountdownPanelSkin', UI_ASSET_PATHS.countdownPanel, new Vec2(-493, 286), new Vec2(310, 64), hudIndex);
+      this.clockIcon = this.createSpriteNode('ClockIcon', UI_ASSET_PATHS.clockIcon, new Vec2(-610, 286), new Vec2(32, 32), hudIndex + 1).node;
+      this.hudLabel.node.setSiblingIndex(hudIndex + 2);
+    }
+
+    this.pauseButton = this.createTopRightButton('PauseButton', new Vec2(488, 286), new Vec2(76, 76));
+    this.pauseButton.on(Node.EventType.TOUCH_END, this.onPauseButton, this);
+
+    this.restartButton = this.createTopRightButton('RestartButton', new Vec2(580, 286), new Vec2(76, 76));
+    this.restartButton.on(Node.EventType.TOUCH_END, this.onRestartButton, this);
+  }
+
+  private createTopRightButton(name: string, position: Vec2, size: Vec2): Node {
+    const node = new Node(name);
+    node.layer = this.node.layer;
+    node.setPosition(position.x, position.y, 0);
+    this.node.addChild(node);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const assetPath = name === 'PauseButton' ? UI_ASSET_PATHS.pauseButton : UI_ASSET_PATHS.restartButton;
+    this.createSpriteChild(node, `${name}Skin`, assetPath, size);
     return node;
   }
 
@@ -247,9 +323,6 @@ export class M1PrototypeRoot extends Component {
     if (this.resultPanel) {
       this.resultPanel.active = false;
     }
-    if (this.pauseButtonLabel) {
-      this.pauseButtonLabel.string = 'Pause';
-    }
   }
 
   private clearActors(): void {
@@ -301,6 +374,7 @@ export class M1PrototypeRoot extends Component {
     const node = new Node('Chicken');
     node.layer = this.node.layer;
     this.node.addChild(node);
+    node.addComponent(UITransform).setContentSize(this.balance.chicken.radius * 3.4, this.balance.chicken.radius * 3.4);
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = new Color(255, 232, 96, 255);
     graphics.strokeColor = new Color(210, 128, 40, 255);
@@ -314,6 +388,15 @@ export class M1PrototypeRoot extends Component {
     graphics.fillColor = Color.BLACK;
     graphics.circle(7, 8, 3);
     graphics.fill();
+    this.createActorShadow(node, new Vec2(62, 16), new Vec2(0, -30), new Color(90, 60, 28, 72));
+    const spriteNode = new Node('ChickenSkin');
+    spriteNode.layer = this.node.layer;
+    node.addChild(spriteNode);
+    spriteNode.setPosition(0, 2, 0);
+    spriteNode.addComponent(UITransform).setContentSize(this.balance.chicken.radius * 3.05, this.balance.chicken.radius * 3.35);
+    const sprite = spriteNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(UI_ASSET_PATHS.chickenIdle, sprite, () => graphics.clear());
     return node;
   }
 
@@ -321,6 +404,7 @@ export class M1PrototypeRoot extends Component {
     const node = new Node('Eagle');
     node.layer = this.node.layer;
     this.node.addChild(node);
+    node.addComponent(UITransform).setContentSize(this.balance.eagle.radius * 4.2, this.balance.eagle.radius * 3.2);
     const graphics = node.addComponent(Graphics);
     graphics.fillColor = new Color(118, 78, 49, 255);
     graphics.strokeColor = new Color(67, 46, 33, 255);
@@ -337,7 +421,27 @@ export class M1PrototypeRoot extends Component {
     graphics.lineTo(30, -4);
     graphics.close();
     graphics.fill();
+    this.createActorShadow(node, new Vec2(88, 16), new Vec2(0, -34), new Color(78, 54, 34, 38));
+    const spriteNode = new Node('EagleSkin');
+    spriteNode.layer = this.node.layer;
+    node.addChild(spriteNode);
+    spriteNode.addComponent(UITransform).setContentSize(this.balance.eagle.radius * 4.3, this.balance.eagle.radius * 3.35);
+    const sprite = spriteNode.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(UI_ASSET_PATHS.eagleFly, sprite, () => graphics.clear());
     return node;
+  }
+
+  private createActorShadow(parent: Node, size: Vec2, position: Vec2, color: Color): void {
+    const node = new Node('ActorShadow');
+    node.layer = this.node.layer;
+    node.setPosition(position.x, position.y, 0);
+    parent.addChild(node);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = color;
+    graphics.ellipse(0, 0, size.x * 0.5, size.y * 0.5);
+    graphics.fill();
   }
 
   private updateChickens(deltaTime: number): void {
@@ -626,18 +730,12 @@ export class M1PrototypeRoot extends Component {
     if (this.state === 'playing') {
       this.state = 'paused';
       this.isDrawing = false;
-      if (this.pauseButtonLabel) {
-        this.pauseButtonLabel.string = 'Resume';
-      }
       this.updateHint();
       return;
     }
 
     if (this.state === 'paused') {
       this.state = 'playing';
-      if (this.pauseButtonLabel) {
-        this.pauseButtonLabel.string = 'Pause';
-      }
       this.updateHint();
     }
   }
@@ -668,15 +766,12 @@ export class M1PrototypeRoot extends Component {
       return;
     }
 
-    const canContinue = appendPointWithinLength(this.linePoints, next, this.balance.line.maxLength);
+    this.linePoints.push(next.clone());
     if (this.linePoints.length >= 2) {
       this.lineCommitted = true;
     }
     this.redrawLine();
     this.updateHint();
-    if (!canContinue || totalPolylineLength(this.linePoints) >= this.balance.line.maxLength) {
-      this.isDrawing = false;
-    }
   }
 
   private onTouchEnd(event?: EventTouch): void {
@@ -747,28 +842,30 @@ export class M1PrototypeRoot extends Component {
     const chickenBounds = this.getChickenBounds();
     graphics.clear();
 
-    graphics.fillColor = new Color(80, 190, 255, 255);
-    graphics.rect(-width * 0.5, chickenBounds.maxY, width, height * 0.5 - chickenBounds.maxY);
-    graphics.fill();
+    if (!this.backgroundSkinReady) {
+      graphics.fillColor = new Color(80, 190, 255, 255);
+      graphics.rect(-width * 0.5, chickenBounds.maxY, width, height * 0.5 - chickenBounds.maxY);
+      graphics.fill();
 
-    graphics.fillColor = new Color(109, 190, 80, 255);
-    graphics.rect(-width * 0.5, -height * 0.5, width, chickenBounds.maxY + height * 0.5);
-    graphics.fill();
+      graphics.fillColor = new Color(109, 190, 80, 255);
+      graphics.rect(-width * 0.5, -height * 0.5, width, chickenBounds.maxY + height * 0.5);
+      graphics.fill();
 
-    graphics.fillColor = new Color(146, 219, 96, 255);
-    graphics.rect(bounds.minX, chickenBounds.minY, bounds.maxX - bounds.minX, chickenBounds.maxY - chickenBounds.minY);
-    graphics.fill();
+      graphics.fillColor = new Color(146, 219, 96, 255);
+      graphics.rect(bounds.minX, chickenBounds.minY, bounds.maxX - bounds.minX, chickenBounds.maxY - chickenBounds.minY);
+      graphics.fill();
 
-    graphics.fillColor = new Color(255, 255, 255, 210);
-    graphics.circle(-410, 210, 34);
-    graphics.circle(-365, 220, 42);
-    graphics.circle(-320, 210, 30);
-    graphics.fill();
+      graphics.fillColor = new Color(255, 255, 255, 210);
+      graphics.circle(-410, 210, 34);
+      graphics.circle(-365, 220, 42);
+      graphics.circle(-320, 210, 30);
+      graphics.fill();
 
-    graphics.circle(315, 245, 28);
-    graphics.circle(350, 255, 38);
-    graphics.circle(390, 244, 26);
-    graphics.fill();
+      graphics.circle(315, 245, 28);
+      graphics.circle(350, 255, 38);
+      graphics.circle(390, 244, 26);
+      graphics.fill();
+    }
 
     graphics.strokeColor = new Color(128, 84, 42, 255);
     graphics.lineWidth = 8;
@@ -779,9 +876,11 @@ export class M1PrototypeRoot extends Component {
     graphics.moveTo(bounds.minX, chickenBounds.maxY);
     graphics.lineTo(bounds.maxX, chickenBounds.maxY);
     graphics.stroke();
-    graphics.fillColor = new Color(238, 183, 82, 255);
-    graphics.rect(-610, 278, 370, 64);
-    graphics.fill();
+    if (!this.backgroundSkinReady) {
+      graphics.fillColor = new Color(238, 183, 82, 255);
+      graphics.rect(-610, 278, 370, 64);
+      graphics.fill();
+    }
 
     for (const obstacle of this.levelConfig.obstacles) {
       const x = obstacle.position.x - obstacle.size.x * 0.5;
@@ -806,6 +905,7 @@ export class M1PrototypeRoot extends Component {
       return;
     }
 
+    this.clearVineSegments();
     const graphics = this.lineGraphics;
     graphics.clear();
     if (this.linePoints.length < 2) {
@@ -827,6 +927,38 @@ export class M1PrototypeRoot extends Component {
       graphics.lineTo(this.linePoints[i].x, this.linePoints[i].y + 2);
     }
     graphics.stroke();
+
+    for (let i = 1; i < this.linePoints.length; i += 1) {
+      this.createVineSegment(this.linePoints[i - 1], this.linePoints[i]);
+    }
+  }
+
+  private createVineSegment(start: Vec2, end: Vec2): void {
+    const segmentLength = distance(start, end);
+    if (segmentLength <= 0) {
+      return;
+    }
+
+    const node = new Node('VineSegmentSkin');
+    node.layer = this.node.layer;
+    node.setPosition((start.x + end.x) * 0.5, (start.y + end.y) * 0.5, 0);
+    node.angle = Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI;
+    this.node.addChild(node);
+    node.setSiblingIndex(11);
+    node.addComponent(UITransform).setContentSize(segmentLength + 18, 22);
+    const sprite = node.addComponent(Sprite);
+    sprite.sizeMode = Sprite.SizeMode.CUSTOM;
+    this.loadSpriteFrame(UI_ASSET_PATHS.vineTexture, sprite);
+    this.vineSegmentNodes.push(node);
+  }
+
+  private clearVineSegments(): void {
+    for (const node of this.vineSegmentNodes) {
+      if (node.isValid) {
+        node.destroy();
+      }
+    }
+    this.vineSegmentNodes = [];
   }
 
   private updateHud(): void {
@@ -834,7 +966,7 @@ export class M1PrototypeRoot extends Component {
       return;
     }
     const aliveCount = this.chickens.filter((chicken) => chicken.alive).length;
-    this.hudLabel.string = `${this.levelConfig.title}  Time ${Math.ceil(this.timeLeft)}  Chicks ${aliveCount}/${this.chickens.length}`;
+    this.hudLabel.string = `${Math.ceil(this.timeLeft)}s  Chicks ${aliveCount}/${this.chickens.length}`;
   }
 
   private updateHint(): void {

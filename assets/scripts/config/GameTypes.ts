@@ -8,7 +8,6 @@ export type GameState = 'ready' | 'playing' | 'paused' | 'win' | 'lose';
 
 export interface DrawLineBalance {
   minSampleDistance: number;
-  maxLength: number;
   collisionRadius: number;
 }
 

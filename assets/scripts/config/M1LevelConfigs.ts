@@ -9,7 +9,6 @@ export const DEFAULT_GAME_BALANCE: GameBalanceConfig = {
   },
   line: {
     minSampleDistance: 18,
-    maxLength: 520,
     collisionRadius: 18,
   },
   chicken: {
@@ -32,7 +31,7 @@ export const M1_LEVEL_CONFIGS: M1LevelConfig[] = [
   {
     id: 'level_001',
     title: 'Sunny Fence',
-    duration: 20,
+    duration: 5,
     chickens: [{ position: { x: -250, y: -95 } }],
     eagle: {
       position: { x: 0, y: 245 },
@@ -44,7 +43,7 @@ export const M1_LEVEL_CONFIGS: M1LevelConfig[] = [
   {
     id: 'level_002',
     title: 'Hay Bale',
-    duration: 24,
+    duration: 5,
     chickens: [{ position: { x: -310, y: -95 } }],
     eagle: {
       position: { x: -260, y: 250 },
@@ -62,7 +61,7 @@ export const M1_LEVEL_CONFIGS: M1LevelConfig[] = [
   {
     id: 'level_003',
     title: 'Busy Yard',
-    duration: 28,
+    duration: 5,
     chickens: [
       { position: { x: -360, y: -120 } },
       { position: { x: 350, y: -145 } },

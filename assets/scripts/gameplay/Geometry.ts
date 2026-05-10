@@ -22,42 +22,6 @@ export function normalizeOrFallback(value: Vec2, fallback: Vec2): Vec2 {
   return new Vec2(value.x / len, value.y / len);
 }
 
-export function totalPolylineLength(points: readonly Vec2[]): number {
-  let total = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    total += distance(points[i - 1], points[i]);
-  }
-  return total;
-}
-
-export function appendPointWithinLength(points: Vec2[], next: Vec2, maxLength: number): boolean {
-  if (points.length === 0) {
-    points.push(next.clone());
-    return true;
-  }
-
-  const currentLength = totalPolylineLength(points);
-  const last = points[points.length - 1];
-  const segmentLength = distance(last, next);
-  if (segmentLength <= EPSILON) {
-    return false;
-  }
-
-  const remaining = maxLength - currentLength;
-  if (remaining <= 0) {
-    return false;
-  }
-
-  if (segmentLength <= remaining) {
-    points.push(next.clone());
-    return true;
-  }
-
-  const ratio = remaining / segmentLength;
-  points.push(new Vec2(last.x + (next.x - last.x) * ratio, last.y + (next.y - last.y) * ratio));
-  return false;
-}
-
 export function closestPointOnSegment(point: Vec2, start: Vec2, end: Vec2): Vec2 {
   const dx = end.x - start.x;
   const dy = end.y - start.y;

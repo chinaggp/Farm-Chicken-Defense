@@ -7,7 +7,6 @@
   },
   "line": {
     "minSampleDistance": 18,
-    "maxLength": 520,
     "collisionRadius": 18
   },
   "chicken": {
