@@ -33,6 +33,7 @@ export interface GameBalanceConfig {
     width: number;
     height: number;
     padding: number;
+    chickenAreaTopY: number;
   };
   line: DrawLineBalance;
   chicken: ChickenBalance;

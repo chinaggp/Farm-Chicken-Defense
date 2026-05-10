@@ -341,7 +341,8 @@ export class M1PrototypeRoot extends Component {
   }
 
   private updateChickens(deltaTime: number): void {
-    const bounds = this.getBounds();
+    const playBounds = this.getBounds();
+    const movementBounds = this.getChickenBounds();
     for (const chicken of this.chickens) {
       if (!chicken.alive) {
         continue;
@@ -351,18 +352,23 @@ export class M1PrototypeRoot extends Component {
       chicken.position.x += chicken.velocity.x * deltaTime;
       chicken.position.y += chicken.velocity.y * deltaTime;
 
-      if (chicken.position.x < bounds.minX || chicken.position.x > bounds.maxX || chicken.position.y < bounds.minY || chicken.position.y > bounds.maxY) {
+      if (
+        chicken.position.x < playBounds.minX
+        || chicken.position.x > playBounds.maxX
+        || chicken.position.y < playBounds.minY
+        || chicken.position.y > playBounds.maxY
+      ) {
         this.finishGame(false);
         return;
       }
 
-      if (chicken.position.x - chicken.radius < bounds.minX || chicken.position.x + chicken.radius > bounds.maxX) {
+      if (chicken.position.x - chicken.radius < movementBounds.minX || chicken.position.x + chicken.radius > movementBounds.maxX) {
         chicken.velocity.x *= -1;
-        chicken.position.x = clamp(chicken.position.x, bounds.minX + chicken.radius, bounds.maxX - chicken.radius);
+        chicken.position.x = clamp(chicken.position.x, movementBounds.minX + chicken.radius, movementBounds.maxX - chicken.radius);
       }
-      if (chicken.position.y - chicken.radius < bounds.minY || chicken.position.y + chicken.radius > bounds.maxY) {
+      if (chicken.position.y - chicken.radius < movementBounds.minY || chicken.position.y + chicken.radius > movementBounds.maxY) {
         chicken.velocity.y *= -1;
-        chicken.position.y = clamp(chicken.position.y, bounds.minY + chicken.radius, bounds.maxY - chicken.radius);
+        chicken.position.y = clamp(chicken.position.y, movementBounds.minY + chicken.radius, movementBounds.maxY - chicken.radius);
       }
 
       const lineHit = chicken.bounceCooldownLeft <= 0
@@ -722,6 +728,14 @@ export class M1PrototypeRoot extends Component {
     };
   }
 
+  private getChickenBounds(): { minX: number; maxX: number; minY: number; maxY: number } {
+    const bounds = this.getBounds();
+    return {
+      ...bounds,
+      maxY: Math.min(bounds.maxY, this.balance.playArea.chickenAreaTopY),
+    };
+  }
+
   private redrawBackground(): void {
     if (!this.backgroundGraphics) {
       return;
@@ -730,16 +744,40 @@ export class M1PrototypeRoot extends Component {
     const width = this.balance.playArea.width;
     const height = this.balance.playArea.height;
     const bounds = this.getBounds();
+    const chickenBounds = this.getChickenBounds();
     graphics.clear();
-    graphics.fillColor = new Color(129, 214, 91, 255);
-    graphics.rect(-width * 0.5, -height * 0.5, width, height);
+
+    graphics.fillColor = new Color(80, 190, 255, 255);
+    graphics.rect(-width * 0.5, chickenBounds.maxY, width, height * 0.5 - chickenBounds.maxY);
     graphics.fill();
+
     graphics.fillColor = new Color(109, 190, 80, 255);
-    graphics.rect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+    graphics.rect(-width * 0.5, -height * 0.5, width, chickenBounds.maxY + height * 0.5);
     graphics.fill();
+
+    graphics.fillColor = new Color(146, 219, 96, 255);
+    graphics.rect(bounds.minX, chickenBounds.minY, bounds.maxX - bounds.minX, chickenBounds.maxY - chickenBounds.minY);
+    graphics.fill();
+
+    graphics.fillColor = new Color(255, 255, 255, 210);
+    graphics.circle(-410, 210, 34);
+    graphics.circle(-365, 220, 42);
+    graphics.circle(-320, 210, 30);
+    graphics.fill();
+
+    graphics.circle(315, 245, 28);
+    graphics.circle(350, 255, 38);
+    graphics.circle(390, 244, 26);
+    graphics.fill();
+
     graphics.strokeColor = new Color(128, 84, 42, 255);
     graphics.lineWidth = 8;
     graphics.rect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+    graphics.stroke();
+    graphics.strokeColor = new Color(99, 154, 69, 255);
+    graphics.lineWidth = 5;
+    graphics.moveTo(bounds.minX, chickenBounds.maxY);
+    graphics.lineTo(bounds.maxX, chickenBounds.maxY);
     graphics.stroke();
     graphics.fillColor = new Color(238, 183, 82, 255);
     graphics.rect(-610, 278, 370, 64);
