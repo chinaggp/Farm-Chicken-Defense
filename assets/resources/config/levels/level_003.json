@@ -1,0 +1,28 @@
+{
+  "id": "level_003",
+  "title": "Busy Yard",
+  "duration": 28,
+  "chickens": [
+    {
+      "position": {
+        "x": -360,
+        "y": -120
+      }
+    },
+    {
+      "position": {
+        "x": 350,
+        "y": -145
+      }
+    }
+  ],
+  "eagle": {
+    "position": {
+      "x": 300,
+      "y": 255
+    },
+    "patrolMinX": -500,
+    "patrolMaxX": 500
+  },
+  "obstacles": []
+}

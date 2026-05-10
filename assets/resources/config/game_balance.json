@@ -1,0 +1,26 @@
+{
+  "playArea": {
+    "width": 1280,
+    "height": 720,
+    "padding": 56
+  },
+  "line": {
+    "minSampleDistance": 18,
+    "maxLength": 520,
+    "collisionRadius": 18
+  },
+  "chicken": {
+    "radius": 24,
+    "minSpeed": 95,
+    "maxSpeed": 150,
+    "bounceCooldown": 0.18
+  },
+  "eagle": {
+    "radius": 30,
+    "patrolSpeed": 125,
+    "lockDuration": 0.75,
+    "diveSpeed": 430,
+    "recoverDuration": 1.1,
+    "hitRadius": 36
+  }
+}

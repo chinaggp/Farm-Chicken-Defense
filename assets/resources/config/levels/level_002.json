@@ -1,0 +1,34 @@
+{
+  "id": "level_002",
+  "title": "Hay Bale",
+  "duration": 24,
+  "chickens": [
+    {
+      "position": {
+        "x": -310,
+        "y": -95
+      }
+    }
+  ],
+  "eagle": {
+    "position": {
+      "x": -260,
+      "y": 250
+    },
+    "patrolMinX": -470,
+    "patrolMaxX": 470
+  },
+  "obstacles": [
+    {
+      "id": "hay_bale_01",
+      "position": {
+        "x": 90,
+        "y": -55
+      },
+      "size": {
+        "x": 170,
+        "y": 86
+      }
+    }
+  ]
+}

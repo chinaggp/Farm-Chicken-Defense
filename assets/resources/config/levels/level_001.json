@@ -1,0 +1,22 @@
+{
+  "id": "level_001",
+  "title": "Sunny Fence",
+  "duration": 20,
+  "chickens": [
+    {
+      "position": {
+        "x": -250,
+        "y": -95
+      }
+    }
+  ],
+  "eagle": {
+    "position": {
+      "x": 0,
+      "y": 245
+    },
+    "patrolMinX": -420,
+    "patrolMaxX": 420
+  },
+  "obstacles": []
+}
