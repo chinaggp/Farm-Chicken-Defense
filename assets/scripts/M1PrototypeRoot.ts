@@ -5,6 +5,7 @@ import {
   EventTouch,
   Graphics,
   Label,
+  LabelOutline,
   Node,
   resources,
   JsonAsset,
@@ -37,10 +38,7 @@ const UI_ASSET_PATHS = {
   eagleDive: 'ui-assets/enemy/eagle_dive_01/spriteFrame',
   eagleBlocked: 'ui-assets/enemy/eagle_blocked_01/spriteFrame',
   vineTexture: 'ui-assets/defense/vine_texture/spriteFrame',
-  pauseButton: 'ui-assets/ui/button_pause/spriteFrame',
-  restartButton: 'ui-assets/ui/button_restart/spriteFrame',
-  countdownPanel: 'ui-assets/ui/countdown_panel_8_5/spriteFrame',
-  clockIcon: 'ui-assets/ui/icon_clock/spriteFrame',
+  countdownPanelGenerated: 'ui-assets/ui/countdown_panel_generated/spriteFrame',
   handPointer: 'ui-assets/guide/hand_pointer/spriteFrame',
 } as const;
 
@@ -64,8 +62,9 @@ export class M1PrototypeRoot extends Component {
   private lineGraphics: Graphics | null = null;
   private vineSegmentNodes: Node[] = [];
   private hudLabel: Label | null = null;
+  private countdownValueLabel: Label | null = null;
+  private countdownUnitLabel: Label | null = null;
   private hintLabel: Label | null = null;
-  private clockIcon: Node | null = null;
   private resultPanel: Node | null = null;
   private resultTitle: Label | null = null;
   private resultButton: Node | null = null;
@@ -231,11 +230,12 @@ export class M1PrototypeRoot extends Component {
   private createHudControls(): void {
     if (this.hudLabel?.node) {
       const hudIndex = this.hudLabel.node.getSiblingIndex();
-      this.hudLabel.node.setPosition(-468, 286, 0);
-      this.hudLabel.node.getComponent(UITransform)?.setContentSize(300, 52);
-      this.createSpriteNode('CountdownPanelSkin', UI_ASSET_PATHS.countdownPanel, new Vec2(-493, 286), new Vec2(310, 64), hudIndex);
-      this.clockIcon = this.createSpriteNode('ClockIcon', UI_ASSET_PATHS.clockIcon, new Vec2(-610, 286), new Vec2(32, 32), hudIndex + 1).node;
-      this.hudLabel.node.setSiblingIndex(hudIndex + 2);
+      const panel = this.createCountdownPanel(new Vec2(-493, 256), new Vec2(300, 127), hudIndex);
+      this.countdownValueLabel = this.createPanelLabel(panel, 'CountdownValue', '', new Vec2(-12, -28), new Vec2(132, 62), 52, new Color(205, 44, 12, 255));
+      this.countdownUnitLabel = this.createPanelLabel(panel, 'CountdownUnit', '\u79d2', new Vec2(62, -30), new Vec2(42, 36), 26, new Color(48, 27, 9, 255));
+      this.applyCountdownTextStyle(this.countdownValueLabel, new Color(255, 228, 142, 255), 3);
+      this.applyCountdownTextStyle(this.countdownUnitLabel, new Color(255, 232, 158, 255), 2);
+      this.hudLabel.node.active = false;
     }
 
     this.pauseButton = this.createTopRightButton('PauseButton', new Vec2(488, 286), new Vec2(76, 76));
@@ -245,15 +245,99 @@ export class M1PrototypeRoot extends Component {
     this.restartButton.on(Node.EventType.TOUCH_END, this.onRestartButton, this);
   }
 
+  private createCountdownPanel(position: Vec2, size: Vec2, siblingIndex: number): Node {
+    const node = new Node('CountdownPanel');
+    node.layer = this.node.layer;
+    node.setPosition(position.x, position.y, 0);
+    this.node.addChild(node);
+    node.setSiblingIndex(siblingIndex);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    this.createSpriteChild(node, 'CountdownPanelGeneratedSkin', UI_ASSET_PATHS.countdownPanelGenerated, size);
+    return node;
+  }
+
+  private createPanelLabel(parent: Node, name: string, text: string, position: Vec2, size: Vec2, fontSize: number, color: Color): Label {
+    const node = new Node(name);
+    node.layer = this.node.layer;
+    node.setPosition(position.x, position.y, 0);
+    parent.addChild(node);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const label = node.addComponent(Label);
+    label.string = text;
+    label.fontSize = fontSize;
+    label.lineHeight = fontSize + 6;
+    label.color = color;
+    return label;
+  }
+
+  private applyCountdownTextStyle(label: Label, color: Color, width: number): void {
+    const outline = label.node.addComponent(LabelOutline);
+    outline.color = color;
+    outline.width = width;
+  }
+
   private createTopRightButton(name: string, position: Vec2, size: Vec2): Node {
     const node = new Node(name);
     node.layer = this.node.layer;
     node.setPosition(position.x, position.y, 0);
     this.node.addChild(node);
     node.addComponent(UITransform).setContentSize(size.x, size.y);
-    const assetPath = name === 'PauseButton' ? UI_ASSET_PATHS.pauseButton : UI_ASSET_PATHS.restartButton;
-    this.createSpriteChild(node, `${name}Skin`, assetPath, size);
+    this.createHudButtonSkin(node, size);
+    this.drawHudButtonIcon(node, name === 'PauseButton' ? 'PauseIcon' : 'RestartIcon');
     return node;
+  }
+
+  private createHudButtonSkin(parent: Node, size: Vec2): void {
+    const node = new Node('HudButtonSkin');
+    node.layer = this.node.layer;
+    parent.addChild(node);
+    node.addComponent(UITransform).setContentSize(size.x, size.y);
+    const graphics = node.addComponent(Graphics);
+    const radius = Math.min(size.x, size.y) * 0.5;
+
+    graphics.fillColor = new Color(126, 74, 30, 255);
+    graphics.circle(0, 0, radius);
+    graphics.fill();
+
+    graphics.fillColor = new Color(255, 218, 129, 255);
+    graphics.circle(0, 0, radius - 6);
+    graphics.fill();
+
+    graphics.strokeColor = new Color(116, 65, 25, 255);
+    graphics.lineWidth = 4;
+    graphics.circle(0, 0, radius - 9);
+    graphics.stroke();
+
+    graphics.strokeColor = new Color(255, 244, 198, 185);
+    graphics.lineWidth = 3;
+    graphics.moveTo(-radius * 0.48, radius * 0.28);
+    graphics.lineTo(radius * 0.18, radius * 0.46);
+    graphics.stroke();
+  }
+
+  private drawHudButtonIcon(parent: Node, iconName: 'PauseIcon' | 'RestartIcon'): void {
+    const node = new Node(iconName);
+    node.layer = this.node.layer;
+    parent.addChild(node);
+    node.addComponent(UITransform).setContentSize(44, 44);
+    const graphics = node.addComponent(Graphics);
+    graphics.fillColor = new Color(100, 55, 22, 255);
+    graphics.strokeColor = new Color(100, 55, 22, 255);
+    graphics.lineWidth = 8;
+
+    if (iconName === 'PauseIcon') {
+      graphics.rect(-13, -18, 8, 36);
+      graphics.rect(5, -18, 8, 36);
+      graphics.fill();
+      return;
+    }
+
+    graphics.circle(0, 0, 16);
+    graphics.stroke();
+    graphics.moveTo(14, 15);
+    graphics.lineTo(24, 16);
+    graphics.lineTo(18, 6);
+    graphics.fill();
   }
 
   private createResultPanel(): void {
@@ -962,11 +1046,14 @@ export class M1PrototypeRoot extends Component {
   }
 
   private updateHud(): void {
-    if (!this.hudLabel) {
+    if (!this.countdownValueLabel) {
       return;
     }
-    const aliveCount = this.chickens.filter((chicken) => chicken.alive).length;
-    this.hudLabel.string = `${Math.ceil(this.timeLeft)}s  Chicks ${aliveCount}/${this.chickens.length}`;
+    this.countdownValueLabel.string = this.formatCountdownValue();
+  }
+
+  private formatCountdownValue(): string {
+    return Math.max(0, this.timeLeft).toFixed(1);
   }
 
   private updateHint(): void {

@@ -14,10 +14,7 @@ $requiredFiles = @(
   'enemy/eagle_dive_01.png',
   'enemy/eagle_blocked_01.png',
   'defense/vine_texture.png',
-  'ui/button_pause.png',
-  'ui/button_restart.png',
-  'ui/countdown_panel_8_5.png',
-  'ui/icon_clock.png',
+  'ui/countdown_panel_generated.png',
   'guide/hand_pointer.png'
 )
 
@@ -39,9 +36,17 @@ $requiredMarkers = @(
   'ui-assets/background/bg_farm_level_01/spriteFrame',
   'ui-assets/chick/chick_idle_01/spriteFrame',
   'ui-assets/enemy/eagle_fly_01/spriteFrame',
-  'ui-assets/ui/button_pause/spriteFrame',
-  'ui-assets/ui/button_restart/spriteFrame',
-  'ui-assets/ui/countdown_panel_8_5/spriteFrame',
+  'ui-assets/ui/countdown_panel_generated/spriteFrame',
+  'CountdownValue',
+  'CountdownUnit',
+  'formatCountdownValue',
+  'new Vec2(-493, 256)',
+  'new Vec2(300, 127)',
+  'applyCountdownTextStyle',
+  'HudButtonSkin',
+  'PauseIcon',
+  'RestartIcon',
+  'drawHudButtonIcon',
   'ui-assets/defense/vine_texture/spriteFrame'
 )
 
@@ -54,6 +59,23 @@ foreach ($marker in $requiredMarkers) {
 
 if ($missingMarkers.Count -gt 0) {
   throw "Missing UI asset code markers in M1PrototypeRoot.ts: $($missingMarkers -join ', ')"
+}
+
+$forbiddenMarkers = @(
+  'countdown_panel_8_5',
+  'Chicks ${aliveCount}',
+  'ChickenBadge'
+)
+
+$presentForbiddenMarkers = @()
+foreach ($marker in $forbiddenMarkers) {
+  if ($source.Contains($marker)) {
+    $presentForbiddenMarkers += $marker
+  }
+}
+
+if ($presentForbiddenMarkers.Count -gt 0) {
+  throw "Countdown HUD must render runtime text, but static countdown art is still referenced: $($presentForbiddenMarkers -join ', ')"
 }
 
 Write-Output 'UI asset wiring verification passed.'
